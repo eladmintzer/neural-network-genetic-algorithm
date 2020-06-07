@@ -15,41 +15,29 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import normalize, Normalizer
 import numpy as np
 from sklearn.metrics import fbeta_score, make_scorer
+from keras import backend as K
 
 # Helper: Early stopping.
 early_stopper = EarlyStopping(patience=5)
 
 def f_beta(y_true, y_pred):
-    return fbeta_score(y_true,y_pred,beta=0.25)
+    beta = 0.25
 
-def get_train():
-    """Retrieve the CIFAR dataset and process the data."""
-    # Set defaults.
-    nb_classes = 1
-    batch_size = 64
-    input_shape = (120,)
+    # just in case of hipster activation at the final layer
+    y_pred = K.clip(y_pred, 0, 1)
 
-    # Get the data.
-    train_file_path = "/home/eladm/project/evaluationAlgorithm/ex2/" \
-                      "Dataset/data/my_min_train.csv"
-    df_train = pd.read_csv(train_file_path)
-    y = df_train.pop('s').values
-    X = df_train.values
-    print("X!!!!~!")
-    print(X.shape)
-    print("Y!!!!~!")
-    print(y)
+    # shifting the prediction threshold from .5 if needed
+    y_pred_bin = K.round(y_pred)
 
-    X = X.astype('float64')
+    tp = K.sum(K.round(y_true * y_pred_bin)) + K.epsilon()
+    fp = K.sum(K.round(K.clip(y_pred_bin - y_true, 0, 1)))
+    fn = K.sum(K.round(K.clip(y_true - y_pred, 0, 1)))
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.1, random_state = 42)
-    normalizer = Normalizer().fit(X)
-    x_train= normalizer.transform(X_train)
-    x_test = normalizer.transform(X_test)
+    precision = tp / (tp + fp)
+    recall = tp / (tp + fn)
 
-
-    return (nb_classes, batch_size, input_shape, x_train, x_test, y_train, y_test)
-
+    beta_squared = beta ** 2
+    return (beta_squared + 1) * (precision * recall) / (beta_squared * precision + recall + K.epsilon())
 
 def compile_model(network, nb_classes, input_shape):
     """Compile a sequential model.
@@ -78,17 +66,17 @@ def compile_model(network, nb_classes, input_shape):
         else:
             model.add(Dense(nb_neurons, activation=activation))
 
-        model.add(Dropout(0.2))  # hard-coded dropout
-
     # Output layer.
     model.add(Dense(nb_classes, activation='softmax'))
 
     model.compile(loss='binary_crossentropy', optimizer=optimizer,
-                  metrics=['accuracy'])#metrics=[f_beta])
+                  metrics=[f_beta])# metrics=['accuracy'])#
 
     return model
 
-def train_and_score(network, dataset):
+
+
+def train_and_score(network, ds_class):
     """Train the model, return test loss.
 
     Args:
@@ -96,20 +84,16 @@ def train_and_score(network, dataset):
         dataset (str): Dataset to use for training/evaluating
 
     """
-    if dataset == 'train':
-        nb_classes, batch_size, input_shape, x_train, \
-            x_test, y_train, y_test = get_train()
 
+    model = compile_model(network, ds_class.nb_classes, ds_class.input_shape)
 
-    model = compile_model(network, nb_classes, input_shape)
-
-    model.fit(x_train, y_train,
-              batch_size=batch_size,
-              epochs=100,  # using early stopping, so no real limit
+    model.fit(ds_class.ga_x_train, ds_class.ga_y_train,
+              batch_size=ds_class.batch_size,
+              epochs=1000,  # using early stopping, so no real limit
               verbose=0,
-              validation_data=(x_test, y_test),
+              validation_data=(ds_class.ga_x_test, ds_class.ga_y_test),
               callbacks=[early_stopper])
 
-    score = model.evaluate(x_test, y_test, verbose=0)
+    score = model.evaluate(ds_class.ga_x_test, ds_class.ga_y_test, verbose=0)
 
-    return score[1]  # 1 is accuracy. 0 is loss.
+    return score[1],model  # 1 is accuracy. 0 is loss.
