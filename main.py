@@ -18,7 +18,7 @@ from sklearn.metrics import fbeta_score, make_scorer
 logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
     datefmt='%m/%d/%Y %I:%M:%S %p',
-    level=logging.INFO,
+    level=logging.DEBUG,
     filename='log.txt'
 )
 
@@ -46,10 +46,9 @@ class DataSetClass():
 
         X = X.astype('float64')
 
-        f_X, ga_X, f_y, ga_y = train_test_split(X, y, test_size = 0.2, random_state = 42)
-        self.f_x_train, self.f_x_test, self.f_y_train, self.f_y_test = train_test_split(f_X, f_y, test_size=0.1, random_state=44)
-        self.ga_x_train, self.ga_x_test, self.ga_y_train, self.ga_y_test = train_test_split(ga_X, ga_y, test_size=0.1, random_state=46)
-
+        f_X, ga_X, f_y, ga_y = train_test_split(X, y, test_size = 0.1, random_state = 42)
+        self.f_x_train, self.f_x_test, self.f_y_train, self.f_y_test = train_test_split(f_X, f_y, test_size=0.05, random_state=44)
+        self.ga_x_train, self.ga_x_test, self.ga_y_train, self.ga_y_test = train_test_split(ga_X, ga_y, test_size=0.05, random_state=46)
 
 def train_networks(networks, dataset):
     """Train each network.
@@ -63,6 +62,8 @@ def train_networks(networks, dataset):
         network.train(dataset)
         pbar.update(1)
     pbar.close()
+def get_max_accuracy(networks):
+    return max(x.accuracy for x in networks)
 
 def get_average_accuracy(networks):
     """Get the average accuracy for a group of networks.
@@ -105,11 +106,15 @@ def generate(generations, population, nn_param_choices, i_file_name,o_file_name)
 
         # Get the average accuracy for this generation.
         average_accuracy = get_average_accuracy(networks)
+        max_accuracy = get_max_accuracy(networks)
 
         # Print out the average accuracy each generation.
         logging.info("Generation average: %.2f%%" % (average_accuracy * 100))
+        logging.info("Generation max: %.2f%%" % (max_accuracy * 100))
+
         logging.info('-'*80)
         print("Generation average: %.2f%%" % (average_accuracy * 100))
+        print("Generation max: %.2f%%" % (max_accuracy * 100))
         print('-' * 80)
 
         # Evolve, except on the last iteration.
@@ -121,12 +126,12 @@ def generate(generations, population, nn_param_choices, i_file_name,o_file_name)
     networks = sorted(networks, key=lambda x: x.accuracy, reverse=True)
 
     # Print out the top 5 networks.
-    print_networks(networks[:-5])
+    print_networks(networks[:5])
 
     # Write the network to file
     if i == generations - 1:
-        networks[-1].train_final_net(ds_class)
-        networks[-1].WriteModelToFile()
+        networks[0].train_final_net(ds_class)
+        networks[0].WriteModelToFile()
 
 def print_networks(networks):
     """Print a list of networks.
@@ -141,13 +146,13 @@ def print_networks(networks):
 
 def main(i_file_name,o_file_name):
     """Evolve a network."""
-    generations = 20  # Number of times to evole the population.
+    generations = 25  # Number of times to evole the population.
     population = 10  # Number of networks in each generation.
 
 
     nn_param_choices = {
-        'nb_neurons': [64, 128, 512, 1024,2048,4096],
-        'nb_layers': [2, 1, 4,5],
+        'nb_neurons': [64, 128,384, 512, 784, 1024],
+        'nb_layers': [2, 1, 4,3,5],
         'activation': ['relu', 'elu', 'tanh', 'sigmoid'],
         'optimizer': ['rmsprop', 'adam', 'sgd', 'adagrad',
                       'adadelta', 'adamax', 'nadam'],

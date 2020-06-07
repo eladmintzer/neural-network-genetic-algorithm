@@ -13,7 +13,7 @@ from network import Network
 class Optimizer():
     """Class that implements genetic algorithm for MLP optimization."""
 
-    def __init__(self, nn_param_choices, retain=0.4,
+    def __init__(self, nn_param_choices, retain=0.2,
                  random_select=0.1, mutate_chance=0.2):
         """Create an optimizer.
 

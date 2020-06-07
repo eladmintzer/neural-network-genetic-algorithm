@@ -74,8 +74,6 @@ def compile_model(network, nb_classes, input_shape):
 
     return model
 
-
-
 def train_and_score(network, ds_class):
     """Train the model, return test loss.
 
@@ -89,7 +87,7 @@ def train_and_score(network, ds_class):
 
     model.fit(ds_class.ga_x_train, ds_class.ga_y_train,
               batch_size=ds_class.batch_size,
-              epochs=1000,  # using early stopping, so no real limit
+              epochs=500,  # using early stopping, so no real limit
               verbose=0,
               validation_data=(ds_class.ga_x_test, ds_class.ga_y_test),
               callbacks=[early_stopper])
